@@ -209,6 +209,8 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
 
-  <ItemGroup />
+  <ItemGroup>
+    <PackageReference Include="FSPowerPack.Parallel.Seq.Community" Version="3.0.0" />
+  </ItemGroup>
 
 </Project>

@@ -3,6 +3,7 @@ open Markov
 open System
 open System.IO
 open System.Text.RegularExpressions
+open Microsoft.FSharp.Collections
 
 let loadFiles filenames =
     let SEPARATORS = [| " "; "\t"; "\r\n"; "\n"; "--" |]
@@ -63,11 +64,12 @@ let files = loadFiles fileChoices
 printf "Building markov chain..."
 
 let markov =
-    (Map.empty, files)
-    ||> List.fold
-        (fun markov (_, paragraphs) ->
+    files
+    |> PSeq.map
+        (fun (_, paragraphs) ->
             printf "."
-            processText markov paragraphs)
+            processText paragraphs)
+    |> PSeq.toList
     |> finalize
 
 printf "\n"

@@ -65,26 +65,40 @@ let processParagraph markov words =
     processParagraph' markov firstWord rest
         
 /// Adds the words in a list of paragraphs to a markov chain.
-let processText markov lines =
+let processText lines =
     let rec processText' (markov: MarkovChain) lines =
         match lines with
         | [] -> markov
         | x::xs ->
             processText' (processParagraph markov x) xs
-    processText' markov lines
+    processText' Map.empty lines
 
-/// Converts the word counts in the markov chain to weighted cutoff values.
-let finalize markov =
-    markov
-    |> Seq.map (fun (KeyValue (headword, counts)) ->
+/// Combines a list of markov chains and converts the word counts to weighted cutoff values.
+let finalize (markovs: MarkovChain list) =
+    markovs
+    |> List.collect (fun markov ->
+        markov
+        |> Seq.map (fun (KeyValue (headword, counts)) -> headword, counts)
+        |> List.ofSeq)
+    |> List.groupBy fst
+    |> List.map (fun (headword, entries) ->
+        let cutoffs =
+            entries
+            |> List.collect (snd >> List.ofSeq >> List.map (|KeyValue|))
+            |> List.groupBy fst
+            |> List.map (fun (word, entries) ->
+                let total = List.sumBy snd entries
+                word, total)
+        headword, cutoffs)
+    |> Seq.map (fun (headword, counts) ->
         let total =
             counts
-            |> Seq.sumBy (fun (KeyValue (_, count)) -> count)
+            |> Seq.sumBy (fun (_, count) -> count)
             |> float
         let cutoffs =
             counts
             |> List.ofSeq
-            |> List.map (fun (KeyValue (key, count)) -> key, float count / total)
+            |> List.map (fun (key, count) -> key, float count / total)
             |> List.sortByDescending (fun (_, weight) -> weight)
             |> calculateCutoffs
         headword, cutoffs)
