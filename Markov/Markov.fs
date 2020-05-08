@@ -1,33 +1,41 @@
 ﻿module Markov
-open Word
 open System
 open System.Collections.Generic
 
 let (|KeyValue|_|) (kvp: KeyValuePair<_, _>) =
     Some (kvp.Key, kvp.Value)
 
+type Word = Word of string | EndOfParagraph
+with
+    override this.ToString() =
+        match this with
+        | Word w -> w
+        | EndOfParagraph -> ""
+//        | EndOfParagraph -> "<END>" // For debugging purposes
+
 type MarkovChain = Map<Word, Map<Word, int>>
 type WeightedMarkovChain = Map<Word, (Word * float) list>
 
-/// Sum the weights cumulatively in ascending order, then sort them in descending order.
-/// By doing this, we subdivide the range of possible values, [0, 1), according to the
-/// specified probability distribution.
+/// Converts the weights paired with each word into cutoff values to compare to
+/// a randomly generated float in the range [0, 1). The output is sorted in
+/// descending order so that 
 ///
 /// This turns a list like
 /// [foo, 0.1; bar, 0.5; baz, 0.4]
 /// into
+/// [foo, 0.0; baz, 0.1; bar, 0.5]
+/// and finally into
 /// [bar, 0.5; baz, 0.1; foo, 0.0]
-let private sumWeights weights =
+let private calculateCutoffs weights =
     let rec inner lastWeight out weights =
         match weights with
         | [] ->
-        //| (Word "", _)::_ ->
             out
         | (w, weight)::xs ->
             let nextWord = (w, lastWeight)
             inner (weight + lastWeight) (nextWord :: out) xs
     weights
-    |> List.sortBy (fun ((_, weight)) -> weight)
+    |> List.sortBy (fun (_, weight) -> weight)
     |> inner 0.0 []
 
 /// Adds a word to a markov chain
@@ -65,6 +73,7 @@ let processText markov lines =
             processText' (processParagraph markov x) xs
     processText' markov lines
 
+/// Converts the word counts in the markov chain to weighted cutoff values.
 let finalize markov =
     markov
     |> Seq.map (fun (KeyValue (headword, counts)) ->
@@ -72,24 +81,25 @@ let finalize markov =
             counts
             |> Seq.sumBy (fun (KeyValue (_, count)) -> count)
             |> float
-        let weights =
+        let cutoffs =
             counts
             |> List.ofSeq
             |> List.map (fun (KeyValue (key, count)) -> key, float count / total)
             |> List.sortByDescending (fun (_, weight) -> weight)
-            |> sumWeights
-        headword, weights)
+            |> calculateCutoffs
+        headword, cutoffs)
     |> Map.ofSeq
 
+/// Generates a paragraph of text from a weighted markov chain.
 let generateParagraph (weightedMarkov: WeightedMarkovChain) =
     let random = Random()
     let rec inner (lastWord::_ as out) =
-        let nextWeight = random.NextDouble()
         match Map.tryFind (Word lastWord) weightedMarkov with
-        | Some weights ->
+        | Some cutoffs ->
+            let nextWeight = random.NextDouble()
             let nextWord, _ =
-                weights
-                |> List.find (fun (_, weight) -> nextWeight > weight)
+                cutoffs
+                |> List.find (fun (_, cutoff) -> nextWeight > cutoff)
             inner (string nextWord :: out)
         | None ->
             out

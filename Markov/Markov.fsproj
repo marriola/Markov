@@ -205,7 +205,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Compile Include="Prompt.fs" />
-    <Compile Include="Word.fs" />
     <Compile Include="Markov.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

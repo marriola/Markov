@@ -57,7 +57,7 @@ let fileChoices =
     |> promptMultiple "Choose texts (blank line to choose all): " (fst >> string)
     |> List.map snd
 
-printfn "Loading..."
+printfn "\nLoading..."
 let files = loadFiles fileChoices
 
 printf "Building markov chain..."
